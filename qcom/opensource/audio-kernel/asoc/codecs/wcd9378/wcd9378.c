@@ -4,6 +4,7 @@
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#define DEBUG
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
@@ -38,6 +39,7 @@
 #define SWR_BASECLK_22P5792MHZ   (0x04)
 
 #define SWR_CLKSCALE_DIV2        (0x02)
+#define SWR_CLKSCALE_DIV4        (0x03)
 
 #define ADC_MODE_VAL_HIFI     0x01
 #define ADC_MODE_VAL_NORMAL   0x03
@@ -47,8 +49,6 @@
 #define PWR_LEVEL_LP_VAL      0x01
 #define PWR_LEVEL_HIFI_VAL    0x02
 #define PWR_LEVEL_ULP_VAL     0x03
-
-#define WCD9378_MBQ_ENABLE_MASK   0x2000
 
 #define MICB_USAGE_VAL_DISABLE    0x00
 #define MICB_USAGE_VAL_PULL_DOWN    0x01
@@ -293,8 +293,10 @@ static int wcd9378_swr_slvdev_datapath_control(struct device *dev,
 	struct wcd9378_priv *wcd9378 = NULL;
 	struct swr_device *swr_dev = NULL;
 	int bank = 0, ret = 0;
-	u8 clk_rst = 0x00, scale_rst = 0x00, swr_clk = 0, clk_scale = 0;
-	u16 scale_reg = 0;
+	u8 clk_rst = 0x00, scale_rst = 0x00;
+	u8 swr_clk = 0, clk_scale = 0;
+	u16 scale_reg = 0, scale_reg2 = 0;
+ 
 
 	wcd9378 = dev_get_drvdata(dev);
 	if (!wcd9378)
@@ -302,12 +304,12 @@ static int wcd9378_swr_slvdev_datapath_control(struct device *dev,
 
 	if (path == RX_PATH) {
 		swr_dev = wcd9378->rx_swr_dev;
-		swr_clk = wcd9378->swr_base_clk;
-		clk_scale = wcd9378->swr_clk_scale;
+		swr_clk = wcd9378->rx_swrclk;
+		clk_scale = wcd9378->rx_clkscale;
 	} else {
 		swr_dev = wcd9378->tx_swr_dev;
-		swr_clk = SWR_BASECLK_19P2MHZ;
-		clk_scale = SWR_CLKSCALE_DIV2;
+		swr_clk = wcd9378->tx_swrclk;
+		clk_scale = wcd9378->tx_clkscale;
 	}
 
 	bank = (wcd9378_swr_slv_get_current_bank(swr_dev,
@@ -315,12 +317,16 @@ static int wcd9378_swr_slvdev_datapath_control(struct device *dev,
 
 	scale_reg = (bank ? SWRS_SCP_BUSCLOCK_SCALE_BANK1 :
 				SWRS_SCP_BUSCLOCK_SCALE_BANK0);
+	scale_reg2 = (!bank ? SWRS_SCP_BUSCLOCK_SCALE_BANK1 :
+				SWRS_SCP_BUSCLOCK_SCALE_BANK0);
 
 	if (enable) {
 		swr_write(swr_dev, swr_dev->dev_num,
 				SWRS_SCP_BASE_CLK_BASE, &swr_clk);
 		swr_write(swr_dev, swr_dev->dev_num,
 				scale_reg, &clk_scale);
+		swr_write(swr_dev, swr_dev->dev_num,
+				scale_reg2, &clk_scale);
 		ret = swr_slvdev_datapath_control(swr_dev,
 					swr_dev->dev_num, true);
 	} else {
@@ -329,9 +335,11 @@ static int wcd9378_swr_slvdev_datapath_control(struct device *dev,
 					SWRS_SCP_BASE_CLK_BASE, &clk_rst);
 			swr_write(swr_dev, swr_dev->dev_num,
 					scale_reg, &scale_rst);
-			ret = swr_slvdev_datapath_control(swr_dev,
-					swr_dev->dev_num, false);
+			swr_write(swr_dev, swr_dev->dev_num,
+					scale_reg2, &scale_rst);
 		}
+		ret = swr_slvdev_datapath_control(swr_dev,
+					swr_dev->dev_num, false);
 	}
 
 	return ret;
@@ -980,6 +988,31 @@ void wcd9378_disable_bcs_before_slow_insert(struct snd_soc_component *component,
 	}
 }
 
+static void wcd9378_get_swr_clk_val(
+			struct snd_soc_component *component,
+			int rate)
+{
+	struct wcd9378_priv *wcd9378 =
+				snd_soc_component_get_drvdata(component);
+
+	switch (rate) {
+	case SWR_CLK_RATE_4P8MHZ:
+		wcd9378->tx_swrclk = SWR_BASECLK_19P2MHZ;
+		wcd9378->tx_clkscale = SWR_CLKSCALE_DIV4;
+		break;
+	case SWR_CLK_RATE_9P6MHZ:
+		wcd9378->tx_swrclk = SWR_BASECLK_19P2MHZ;
+		wcd9378->tx_clkscale = SWR_CLKSCALE_DIV2;
+		break;
+	default:
+		pr_err("%s: unsupport rate\n", __func__);
+		break;
+	}
+
+	pr_debug("%s: rate: %d, tx_swrclk: 0x%x, tx_clkscale: 0x%x\n",
+		__func__, rate, wcd9378->tx_swrclk, wcd9378->tx_clkscale);
+}
+
 static int wcd9378_get_clk_rate(int mode)
 {
 	int rate;
@@ -1092,7 +1125,7 @@ static int wcd9378_sys_usage_bit_get(
 					WCD9378_TX_NEW_TX_CH12_MUX_CH1_SEL_MASK) == 0x02) {
 				*sys_usage_bit = TX0_AMIC2_EN;
 			} else {
-				dev_err(component->dev, "%s: unsupport usecase, pls check\n",
+				dev_err(component->dev, "%s: adc1 unsupport usecase, pls check[TF-NOSOUND]\n",
 						__func__);
 				return -EINVAL;
 			}
@@ -1107,7 +1140,7 @@ static int wcd9378_sys_usage_bit_get(
 					WCD9378_TX_NEW_TX_CH12_MUX_CH2_SEL_MASK) == 0x18) {
 				*sys_usage_bit = TX1_AMIC3_EN;
 			} else {
-				dev_err(component->dev, "%s: unsupport usecase, pls check\n",
+				dev_err(component->dev, "%s: adc2 unsupport usecase, pls check[TF-NOSOUND]\n",
 						__func__);
 				return -EINVAL;
 			}
@@ -1122,7 +1155,7 @@ static int wcd9378_sys_usage_bit_get(
 					WCD9378_TX_NEW_TX_CH34_MUX_CH3_SEL_MASK) == 0x03) {
 				*sys_usage_bit = TX2_AMIC4_EN;
 			} else {
-				dev_err(component->dev, "%s: unsupport usecase, pls check\n",
+				dev_err(component->dev, "%s: adc3 unsupport usecase, pls check[TF-NOSOUND]\n",
 						__func__);
 				return -EINVAL;
 			}
@@ -1214,6 +1247,8 @@ static int wcd9378_tx_sequencer_enable(struct snd_soc_dapm_widget *w,
 		wcd9378_tx_connect_port(component, w->shift, rate,
 				true);
 
+		wcd9378_get_swr_clk_val(component, rate);
+
 		switch (w->shift) {
 		case ADC1:
 			/*SMP MIC0 IT11 USAGE SET*/
@@ -1288,8 +1323,8 @@ static int wcd9378_tx_sequencer_enable(struct snd_soc_dapm_widget *w,
 
 			act_ps = snd_soc_component_read(component, WCD9378_PDE11_ACT_PS);
 			if (act_ps)
-				dev_dbg(component->dev,
-					"%s: TX0 sequencer power on failed\n", __func__);
+				dev_err(component->dev,
+					"%s: TX0 sequencer power on failed[TF-NOSOUND]\n", __func__);
 			else
 				dev_dbg(component->dev,
 					"%s: TX0 sequencer power on success\n", __func__);
@@ -1306,8 +1341,8 @@ static int wcd9378_tx_sequencer_enable(struct snd_soc_dapm_widget *w,
 							WCD9378_SMP_MIC_CTRL1_PDE11_ACT_PS);
 
 			if (act_ps)
-				dev_dbg(component->dev,
-					"%s: TX1 sequencer power on failed\n", __func__);
+				dev_err(component->dev,
+					"%s: TX1 sequencer power on failed[TF-NOSOUND]\n", __func__);
 			else
 				dev_dbg(component->dev,
 					"%s: TX1 sequencer power on success\n", __func__);
@@ -1319,8 +1354,8 @@ static int wcd9378_tx_sequencer_enable(struct snd_soc_dapm_widget *w,
 			act_ps = snd_soc_component_read(component,
 						WCD9378_SMP_MIC_CTRL2_PDE11_ACT_PS);
 			if (act_ps)
-				dev_dbg(component->dev,
-					"%s: TX2 sequencer power on failed\n", __func__);
+				dev_err(component->dev,
+					"%s: TX2 sequencer power on failed[TF-NOSOUND]\n", __func__);
 			else
 				dev_dbg(component->dev,
 					"%s: TX2 sequencer power on success\n", __func__);
@@ -1907,26 +1942,18 @@ static void wcd9378_hph_set_channel_volume(struct snd_soc_component *component)
 {
 	struct wcd9378_priv *wcd9378 =
 				snd_soc_component_get_drvdata(component);
+	u8 msb_val = 0, lsb_val = 0;
 
 	if ((!wcd9378->comp1_enable) &&
 			(!wcd9378->comp2_enable)) {
-		snd_soc_component_update_bits(component,
-				(WCD9378_FU42_CH_VOL_CH1 | WCD9378_MBQ_ENABLE_MASK),
-				WCD9378_FU42_CH_VOL_CH1_FU42_CH_VOL_CH1_MASK,
-				wcd9378->hph_gain >> 8);
-		snd_soc_component_update_bits(component,
-				WCD9378_FU42_CH_VOL_CH1,
-				WCD9378_FU42_CH_VOL_CH1_FU42_CH_VOL_CH1_MASK,
-				wcd9378->hph_gain & 0x00ff);
+		msb_val = (wcd9378->hph_gain >> 8);
+		lsb_val = (wcd9378->hph_gain & 0x00ff);
 
-		snd_soc_component_update_bits(component,
-				(WCD9378_FU42_CH_VOL_CH2 | WCD9378_MBQ_ENABLE_MASK),
-				WCD9378_FU42_CH_VOL_CH2_FU42_CH_VOL_CH2_MASK,
-				wcd9378->hph_gain >> 8);
-		snd_soc_component_update_bits(component,
-				WCD9378_FU42_CH_VOL_CH2,
-				WCD9378_FU42_CH_VOL_CH2_FU42_CH_VOL_CH2_MASK,
-				wcd9378->hph_gain & 0x00ff);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_CH_VOL_CH1_MSB, msb_val);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_CH_VOL_CH1_LSB, lsb_val);
+
+		regmap_write(wcd9378->regmap, WCD9378_FU42_CH_VOL_CH2_MSB, msb_val);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_CH_VOL_CH2_LSB, lsb_val);
 	}
 }
 
@@ -1940,7 +1967,7 @@ static int wcd9378_hph_sequencer_enable(struct snd_soc_dapm_widget *w,
 				snd_soc_component_get_drvdata(component);
 	int power_level, ret = 0;
 	struct swr_device *swr_dev = wcd9378->tx_swr_dev;
-	u8 scp_commit_val = 0x2;
+	u8 commit_val = 0x02;
 
 	dev_dbg(component->dev, "%s wname: %s event: %d\n", __func__,
 		w->name, event);
@@ -1948,6 +1975,8 @@ static int wcd9378_hph_sequencer_enable(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		wcd9378_sys_usage_auto_udpate(component, RX0_RX1_HPH_EN, true);
+
+		regmap_write(wcd9378->regmap, WCD9378_CMT_GRP_MASK, 0x02);
 
 		if ((!wcd9378->comp1_enable) || (!wcd9378->comp2_enable)) {
 			snd_soc_component_update_bits(component, WCD9378_HPH_UP_T7,
@@ -1975,7 +2004,6 @@ static int wcd9378_hph_sequencer_enable(struct snd_soc_dapm_widget *w,
 		snd_soc_component_update_bits(component, WCD9378_PDE47_REQ_PS,
 				WCD9378_PDE47_REQ_PS_PDE47_REQ_PS_MASK, 0x00);
 
-		/*TBD: SET SDCA GAIN, NEED CHECK THE LOGIC*/
 		wcd9378_hph_set_channel_volume(component);
 
 		if ((!wcd9378->comp1_enable) || (!wcd9378->comp2_enable))
@@ -1985,30 +2013,23 @@ static int wcd9378_hph_sequencer_enable(struct snd_soc_dapm_widget *w,
 			/*COMP delay is 9400us*/
 			usleep_range(9500, 9510);
 
-		/*RX0 unmute*/
-		snd_soc_component_update_bits(component, WCD9378_FU42_MUTE_CH1,
-				WCD9378_FU42_MUTE_CH1_FU42_MUTE_CH1_MASK, 0x00);
-
-		/*RX1 unmute*/
-		snd_soc_component_update_bits(component, WCD9378_FU42_MUTE_CH2,
-				WCD9378_FU42_MUTE_CH2_FU42_MUTE_CH2_MASK, 0x00);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_MUTE_CH1_CN, 0x00);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_MUTE_CH2_CN, 0x00);
 
 		if (wcd9378->sys_usage == SYS_USAGE_10)
 			/*FU23 UNMUTE*/
 			snd_soc_component_update_bits(component, WCD9378_FU23_MUTE,
 					WCD9378_FU23_MUTE_FU23_MUTE_MASK, 0x00);
 
-		swr_write(swr_dev, swr_dev->dev_num, 0x004c, &scp_commit_val);
+		swr_write(swr_dev, swr_dev->dev_num, 0x004c, &commit_val);
 
 		wcd9378_swr_slvdev_datapath_control(wcd9378->dev, RX_PATH, true);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/*RX0 mute*/
-		snd_soc_component_update_bits(component, WCD9378_FU42_MUTE_CH1,
-				WCD9378_FU42_MUTE_CH1_FU42_MUTE_CH1_MASK, 0x01);
-		/*RX1 mute*/
-		snd_soc_component_update_bits(component, WCD9378_FU42_MUTE_CH2,
-				WCD9378_FU42_MUTE_CH2_FU42_MUTE_CH2_MASK, 0x01);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_MUTE_CH1_CN, 0x01);
+		regmap_write(wcd9378->regmap, WCD9378_FU42_MUTE_CH2_CN, 0x01);
+
+		swr_write(swr_dev, swr_dev->dev_num, 0x004c, &commit_val);
 
 		/*TEAR DOWN HPH SEQUENCER*/
 		snd_soc_component_update_bits(component, WCD9378_PDE47_REQ_PS,
@@ -2256,14 +2277,14 @@ int wcd9378_micbias_control(struct snd_soc_component *component,
 			snd_soc_component_update_bits(component, WCD9378_MB_PULLUP_EN,
 						pull_up_mask, pull_up_en);
 			snd_soc_component_update_bits(component,
-						micb_usage, micb_mask, 0x03);
+						micb_usage, micb_mask, micb_usage_val);
 
 			if (micb_num == MIC_BIAS_2) {
 				snd_soc_component_update_bits(component,
 						WCD9378_IT31_MICB,
 						WCD9378_IT31_MICB_IT31_MICB_MASK,
-						0x03);
-				wcd9378->curr_micbias2 = 1800;
+						micb_usage_val);
+				wcd9378->curr_micbias2 = mb->micb2_mv;
 			}
 		}
 		break;
@@ -2285,12 +2306,6 @@ int wcd9378_micbias_control(struct snd_soc_component *component,
 		}
 		break;
 	case MICB_ENABLE:
-		if (!wcd9378->dev_up) {
-			dev_dbg(component->dev, "%s: enable req %d wcd device down\n",
-				__func__, req);
-			ret = -ENODEV;
-			goto done;
-		}
 		wcd9378->micb_ref[micb_index]++;
 		if (wcd9378->micb_ref[micb_index] == 1) {
 			dev_dbg(component->dev, "%s: enable micbias, micb_usage:0x%0x, val:0x%0x\n",
@@ -2303,7 +2318,7 @@ int wcd9378_micbias_control(struct snd_soc_component *component,
 						WCD9378_IT31_MICB,
 						WCD9378_IT31_MICB_IT31_MICB_MASK,
 						micb_usage_val);
-				wcd9378->curr_micbias2 = 1800;
+				wcd9378->curr_micbias2 = mb->micb2_mv;
 			}
 			if (post_on_event)
 				blocking_notifier_call_chain(
@@ -2325,7 +2340,7 @@ int wcd9378_micbias_control(struct snd_soc_component *component,
 						pull_up_mask, pull_up_en);
 
 			if (micb_num == MIC_BIAS_2)
-				wcd9378->curr_micbias2 = 1800;
+				wcd9378->curr_micbias2 = mb->micb2_mv;
 		} else if ((wcd9378->micb_ref[micb_index] == 0) &&
 			 (wcd9378->pullup_ref[micb_index] == 0)) {
 			if (pre_off_event && wcd9378->mbhc)
@@ -2364,7 +2379,6 @@ int wcd9378_micbias_control(struct snd_soc_component *component,
 		__func__, micb_num, wcd9378->micb_ref[micb_index],
 		wcd9378->pullup_ref[micb_index]);
 
-done:
 	mutex_unlock(&wcd9378->micb_lock);
 	return ret;
 }
@@ -2466,7 +2480,6 @@ static int wcd9378_event_notify(struct notifier_block *block,
 					0x80, 0x00);
 		break;
 	case BOLERO_SLV_EVT_SSR_DOWN:
-		wcd9378->dev_up = false;
 		if (wcd9378->notify_swr_dmic)
 			blocking_notifier_call_chain(&wcd9378->notifier,
 						WCD9378_EVT_SSR_DOWN,
@@ -2504,7 +2517,6 @@ static int wcd9378_event_notify(struct notifier_block *block,
 			wcd9378_mbhc_hs_detect(component, mbhc->mbhc_cfg);
 		}
 		wcd9378->mbhc->wcd_mbhc.deinit_in_progress = false;
-		wcd9378->dev_up = true;
 		if (wcd9378->notify_swr_dmic)
 			blocking_notifier_call_chain(&wcd9378->notifier,
 						WCD9378_EVT_SSR_UP,
@@ -2521,20 +2533,20 @@ static int wcd9378_event_notify(struct notifier_block *block,
 
 		switch (rx_clk_type) {
 		case RX_CLK_12P288MHZ:
-			wcd9378->swr_base_clk = SWR_BASECLK_24P576MHZ;
-			wcd9378->swr_clk_scale = SWR_CLKSCALE_DIV2;
+			wcd9378->rx_swrclk = SWR_BASECLK_24P576MHZ;
+			wcd9378->rx_clkscale = SWR_CLKSCALE_DIV2;
 			break;
 		case RX_CLK_11P2896MHZ:
-			wcd9378->swr_base_clk = SWR_BASECLK_22P5792MHZ;
-			wcd9378->swr_clk_scale = SWR_CLKSCALE_DIV2;
+			wcd9378->rx_swrclk = SWR_BASECLK_22P5792MHZ;
+			wcd9378->rx_clkscale = SWR_CLKSCALE_DIV2;
 			break;
 		default:
-			wcd9378->swr_base_clk = SWR_BASECLK_19P2MHZ;
-			wcd9378->swr_clk_scale = SWR_CLKSCALE_DIV2;
+			wcd9378->rx_swrclk = SWR_BASECLK_19P2MHZ;
+			wcd9378->rx_clkscale = SWR_CLKSCALE_DIV2;
 			break;
 		}
 		dev_dbg(component->dev, "%s: base_clk:0x%0x, clk_scale:0x%x\n",
-				__func__, wcd9378->swr_base_clk, wcd9378->swr_clk_scale);
+				__func__, wcd9378->rx_swrclk, wcd9378->rx_clkscale);
 
 		break;
 	default:
@@ -4178,6 +4190,8 @@ static void wcd9378_dt_parse_micbias_info(struct device *dev,
 						  &prop_val);
 		if (!rc)
 			mb->micb2_mv = prop_val;
+		else
+		    mb->micb2_mv = 1800;
 	} else {
 		dev_info(dev, "%s: Micbias2 DT property not found\n",
 			__func__);
@@ -4382,7 +4396,6 @@ static int wcd9378_bind(struct device *dev)
 				__func__);
 		goto err_irq;
 	}
-	wcd9378->dev_up = true;
 
 	return ret;
 err_irq:

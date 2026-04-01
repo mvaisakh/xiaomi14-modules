@@ -42,6 +42,7 @@
 #include "msm_common.h"
 #include "msm_dailink.h"
 
+
 #define DRV_NAME "kalama-asoc-snd"
 #define __CHIPSET__ "KALAMA "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
@@ -2075,6 +2076,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	return 0;
 err:
 	devm_kfree(&pdev->dev, pdata);
+	printk("<%s><%d>: X, failed.\n", __func__, __LINE__);
 	return ret;
 }
 
