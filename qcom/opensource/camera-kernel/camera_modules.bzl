@@ -31,6 +31,12 @@ def _define_module(target, variant, lunch_target=None):
             "//vendor/qcom/opensource/synx-kernel:{}_modules".format(tv),
         ])
 
+    if target == "houji":
+        deps.extend([
+            "//vendor/qcom/opensource/synx-kernel:synx_headers",
+            "//vendor/qcom/opensource/synx-kernel:{}_modules".format(tv),
+        ])
+
     ddk_module(
         name = ddk_mod_name,
         out = "camera.ko",
