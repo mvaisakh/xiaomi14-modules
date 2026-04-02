@@ -13,6 +13,10 @@ _target_chipset_map = {
 	"qca6750",
 	"wcn6450",
     ],
+    "houji": [
+        "kiwi-v2",
+        "qca6750",
+    ],
     "sun": [
 	"peach-v2",
         "peach",
