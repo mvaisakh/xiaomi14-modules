@@ -2,3 +2,6 @@ load(":define_modules.bzl", "define_modules")
 
 define_modules("pineapple", "consolidate")
 define_modules("pineapple", "gki")
+
+define_modules("houji", "consolidate")
+define_modules("houji", "gki")
