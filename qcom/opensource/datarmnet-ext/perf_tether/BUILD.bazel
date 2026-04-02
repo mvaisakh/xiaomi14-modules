@@ -5,6 +5,10 @@ define_perf_tether("pineapple", "consolidate")
 
 define_perf_tether("pineapple", "gki")
 
+define_perf_tether("houji", "consolidate")
+
+define_perf_tether("houji", "gki")
+
 define_perf_tether("blair", "consolidate")
 
 define_perf_tether("blair", "gki")

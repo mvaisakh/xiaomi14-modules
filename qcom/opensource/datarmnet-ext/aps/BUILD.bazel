@@ -5,6 +5,10 @@ define_aps("pineapple", "consolidate")
 
 define_aps("pineapple", "gki")
 
+define_aps("houji", "consolidate")
+
+define_aps("houji", "gki")
+
 define_aps("pitti", "consolidate")
 
 define_aps("pitti", "gki")
