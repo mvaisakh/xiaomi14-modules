@@ -1,8 +1,9 @@
 load(":bt_kernel.bzl", "define_bt_modules")
 
 def define_pineapple():
+  for platform in ["pineapple", "houji"]:
     define_bt_modules(
-        target = "pineapple",
+        target = platform,
         modules = [
             "btpower",
             "bt_fm_slim",
