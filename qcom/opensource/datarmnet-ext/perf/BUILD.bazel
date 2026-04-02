@@ -5,6 +5,10 @@ define_perf("pineapple", "consolidate")
 
 define_perf("pineapple", "gki")
 
+define_perf("houji", "consolidate")
+
+define_perf("houji", "gki")
+
 define_perf("blair", "consolidate")
 
 define_perf("blair", "gki")

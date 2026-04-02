@@ -4,6 +4,10 @@ define_shs("pineapple", "consolidate")
 
 define_shs("pineapple", "gki")
 
+define_shs("houji", "consolidate")
+
+define_shs("houji", "gki")
+
 define_shs("blair", "consolidate")
 
 define_shs("blair", "gki")

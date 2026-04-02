@@ -5,6 +5,10 @@ define_wlan("pineapple", "consolidate")
 
 define_wlan("pineapple", "gki")
 
+define_wlan("houji", "consolidate")
+
+define_wlan("houji", "gki")
+
 define_wlan("blair", "consolidate")
 
 define_wlan("blair", "gki")
