@@ -103,6 +103,8 @@ struct trusted_touch_vm_info {
 	atomic_t vm_state;
 };
 
+extern struct qts_vendor_data qts_vendor_data;
+
 struct qts_data;
 
 struct qts_data {
