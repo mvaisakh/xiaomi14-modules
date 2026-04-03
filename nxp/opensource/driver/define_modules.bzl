@@ -12,6 +12,12 @@ def define_modules(target, variant):
                 "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv)
        ]
 
+    if target == "houji":
+       copts.append("-DNFC_SECURE_PERIPHERAL_ENABLED")
+       deps += ["//vendor/qcom/opensource/securemsm-kernel:smcinvoke_kernel_headers",
+                "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv)
+       ]
+
     ddk_module(
         name = "{}_nxp-nci".format(tv),
         out = "nxp-nci.ko",
