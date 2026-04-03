@@ -161,3 +161,12 @@ module_entry(
             "raydium/chip_raydium/ic_drv_interface.c"
     ]
 )
+
+# Xiaomi Touch
+module_entry(
+    name = "xiaomi-touch",
+    config_option = "CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE",
+    srcs = [
+            "xiaomi/xiaomi_touch.c"
+    ]
+)
