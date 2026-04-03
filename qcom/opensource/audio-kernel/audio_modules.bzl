@@ -476,3 +476,16 @@ audio_modules.register(
     config_option = "CONFIG_SND_SOC_WCD9378_SLAVE",
     srcs = ["wcd9378-slave.c"]
 )
+
+# CS35L41
+audio_modules.register(
+    name = "cs35l41_dlkm",
+    path = ASOC_CODECS_PATH + "/cs35l41",
+    config_option = "CONFIG_SND_SOC_CS35L41",
+    srcs = [
+        "cs35l41.c",
+        "cs35l41-i2c.c",
+        "cs35l41-tables.c",
+        "wm_adsp.c",
+    ]
+)
