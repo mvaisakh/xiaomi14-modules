@@ -1881,5 +1881,11 @@ void qts_client_unregister(void)
 }
 EXPORT_SYMBOL_GPL(qts_client_unregister);
 
+struct  qts_data *get_qts_data_helper(struct  qts_vendor_data *qts_vendor_data) {
+	const int id = qts_vendor_data->client_type;
+	return &qts_data_entries->info[id];
+}
+EXPORT_SYMBOL(get_qts_data_helper);
+
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Touchscreen driver");
 MODULE_LICENSE("GPL");
