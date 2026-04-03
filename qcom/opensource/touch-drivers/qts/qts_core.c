@@ -1616,7 +1616,7 @@ error:
 
 #endif
 
-static void qts_ts_suspend(struct qts_data *qts_data)
+void qts_ts_suspend(struct qts_data *qts_data)
 {
 	int rc = 0;
 
@@ -1639,8 +1639,9 @@ static void qts_ts_suspend(struct qts_data *qts_data)
 	qts_data->suspended = true;
 	mutex_unlock(&qts_data->transition_lock);
 }
+EXPORT_SYMBOL(qts_ts_suspend);
 
-static void qts_ts_resume(struct qts_data *qts_data)
+void qts_ts_resume(struct qts_data *qts_data)
 {
 	int rc = 0;
 
@@ -1662,6 +1663,7 @@ static void qts_ts_resume(struct qts_data *qts_data)
 	qts_data->suspended = false;
 	mutex_unlock(&qts_data->transition_lock);
 }
+EXPORT_SYMBOL(qts_ts_resume);
 
 static void qts_resume_work(struct work_struct *work)
 {
