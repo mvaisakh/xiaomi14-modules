@@ -174,6 +174,9 @@ module_entry(
                               "rotator/sde_rotator_r1_debug.c",
                               "rotator/sde_rotator_r3_debug.c"],
             },
+         "CONFIG_MI_DISPLAY" : [
+            "msm/mi_disp/mi_disp.c",
+         ]
       },
       config_deps = {
         "CONFIG_HDCP_QSEECOM" : [
