@@ -186,6 +186,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
+	struct dsi_display *display;
 
 	if (!bridge) {
 		DSI_ERR("Invalid params\n");
@@ -196,6 +197,8 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		DSI_ERR("Incorrect bridge details\n");
 		return;
 	}
+
+	display = c_bridge->display;
 
 	if (bridge->encoder->crtc->state->active_changed)
 		atomic_set(&c_bridge->display->panel->esd_recovery_pending, 0);
