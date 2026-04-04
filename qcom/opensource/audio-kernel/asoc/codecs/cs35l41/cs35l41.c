@@ -362,7 +362,7 @@ static int cs35l41_halo_booted_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#include "cs35l41-cal.c"
+#include "cs35l41-cal.h"
 static int cs35l41_force_int_get(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
