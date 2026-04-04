@@ -154,7 +154,8 @@ def define_pineapple(t, v, lt=None):
             "wcd939x_dlkm",
             "wcd939x_slave_dlkm",
             "wcd9378_dlkm",
-            "wcd9378_slave_dlkm"
+            "wcd9378_slave_dlkm",
+            "cs35l41_dlkm",
         ],
         config_options = [
             "CONFIG_SND_SOC_PINEAPPLE",
@@ -170,6 +171,7 @@ def define_pineapple(t, v, lt=None):
             "CONFIG_SND_SOC_WCD_IRQ",
             "CONFIG_SND_SOC_WCD9XXX_V2",
             "CONFIG_SND_SOC_WCD_MBHC_ADC",
+            "CONFIG_SND_SOC_CS35L41",
             "CONFIG_MSM_EXT_DISPLAY",
         ],
         lunch_target = lt,
