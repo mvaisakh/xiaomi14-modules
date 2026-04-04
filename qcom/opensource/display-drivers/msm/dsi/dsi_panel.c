@@ -376,6 +376,9 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_vregs;
 	}
 
+	if (panel->lp11_init)
+		goto exit;
+
 	rc = dsi_panel_reset(panel);
 	if (rc) {
 		DSI_ERR("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
@@ -434,7 +437,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	return rc;
 }
-static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
+
+int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 				enum dsi_cmd_set_type type)
 {
 	int rc = 0, i = 0;
@@ -556,7 +560,7 @@ static int dsi_panel_wled_register(struct dsi_panel *panel,
 	return 0;
 }
 
-static int dsi_panel_update_backlight(struct dsi_panel *panel,
+int dsi_panel_update_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
 {
 	int rc = 0;
@@ -1900,6 +1904,43 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-on-commands",
 	"qcom,mdss-dsi-qsync-off-commands",
 	"qcom,mdss-dsi-calibration-commands",
+	"mi,mdss-dsi-dimmingon-command",
+	"mi,mdss-dsi-dimmingoff-command",
+	"mi,mdss-dsi-hbm-on-command",
+	"mi,mdss-dsi-hbm-off-command",
+	"mi,mdss-dsi-hbm-fod-on-command",
+	"mi,mdss-dsi-hbm-fod-off-command",
+	"mi,mdss-dsi-doze-hbm-command",
+	"mi,mdss-dsi-doze-lbm-command",
+	"mi,mdss-dsi-doze-hbm-nolp-command",
+	"mi,mdss-dsi-doze-lbm-nolp-command",
+	"mi,mdss-dsi-dc-on-command",
+	"mi,mdss-dsi-dc-off-command",
+	"mi,mdss-dsi-local-hbm-white-1000nit-giron-pre-read-command",
+	"mi,mdss-dsi-local-hbm-white-1000nit-giroff-pre-read-command",
+	"mi,mdss-dsi-local-hbm-normal-white-1000nit-pre-command",
+	"mi,mdss-dsi-local-hbm-normal-white-1000nit-command",
+	"mi,mdss-dsi-local-hbm-hlpm-white-1000nit-command",
+	"mi,mdss-dsi-local-hbm-normal-white-750nit-command",
+	"mi,mdss-dsi-local-hbm-normal-white-500nit-command",
+	"mi,mdss-dsi-local-hbm-white-110nit-giron-pre-read-command",
+	"mi,mdss-dsi-local-hbm-white-110nit-giroff-pre-read-command",
+	"mi,mdss-dsi-local-hbm-normal-white-110nit-command",
+	"mi,mdss-dsi-local-hbm-hlpm-white-110nit-command",
+	"mi,mdss-dsi-local-hbm-normal-green-500nit-command",
+	"mi,mdss-dsi-local-hbm-off-to-normal-command",
+	"mi,mdss-dsi-local-hbm-off-to-hbm-command",
+	"mi,mdss-dsi-local-hbm-off-to-hlpm-command",
+	"mi,mdss-dsi-local-hbm-off-to-llpm-command",
+	"mi,mdss-dsi-doze-to-off-command",
+	"mi,mdss-dsi-doze-param-read",
+	"mi,mdss-dsi-doze-param-read-end",
+	"mi,mdss-dsi-panel-status-offset-command",
+	"mi,mdss-dsi-panel-status-after-command",
+	"mi,mdss-dsi-auto-update-gamma-command",
+	"mi,mdss-dsi-timing-switch-from-auto-mode-command",
+	"mi,mdss-dsi-timing-switch-from-skip-mode-command",
+	"mi,mdss-dsi-timing-switch-from-normal-mode-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1929,6 +1970,44 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-on-commands-state",
 	"qcom,mdss-dsi-qsync-off-commands-state",
 	"qcom,mdss-dsi-calibration-commands-state",
+	"mi,mdss-dsi-dimmingon-command-state",
+	"mi,mdss-dsi-dimmingoff-command-state",
+	"mi,mdss-dsi-hbm-on-command-state",
+	"mi,mdss-dsi-hbm-off-command-state",
+	"mi,mdss-dsi-hbm-fod-on-command-state",
+	"mi,mdss-dsi-hbm-fod-off-command-state",
+	"mi,mdss-dsi-doze-hbm-command-state",
+	"mi,mdss-dsi-doze-lbm-command-state",
+	"mi,mdss-dsi-doze-hbm-nolp-command-state",
+	"mi,mdss-dsi-doze-lbm-nolp-command-state",
+	"mi,mdss-dsi-dc-on-command-state",
+	"mi,mdss-dsi-dc-off-command-state",
+	"mi,mdss-dsi-local-hbm-white-1000nit-giron-pre-read-command-state",
+	"mi,mdss-dsi-local-hbm-white-1000nit-giroff-pre-read-command-state",
+	"mi,mdss-dsi-local-hbm-normal-white-1000nit-pre-command-state",
+	"mi,mdss-dsi-local-hbm-normal-white-1000nit-command-state",
+	"mi,mdss-dsi-local-hbm-hlpm-white-1000nit-command-state",
+	"mi,mdss-dsi-local-hbm-normal-white-750nit-command-state",
+	"mi,mdss-dsi-local-hbm-normal-white-500nit-command-state",
+	"mi,mdss-dsi-local-hbm-white-110nit-giron-pre-read-command-state",
+	"mi,mdss-dsi-local-hbm-white-110nit-giroff-pre-read-command-state",
+	"mi,mdss-dsi-local-hbm-normal-white-110nit-command-state",
+	"mi,mdss-dsi-local-hbm-hlpm-white-110nit-command-state",
+	"mi,mdss-dsi-local-hbm-normal-green-500nit-command-state",
+	"mi,mdss-dsi-local-hbm-off-to-normal-command-state",
+	"mi,mdss-dsi-local-hbm-off-to-hbm-command-state",
+	"mi,mdss-dsi-local-hbm-off-to-hlpm-command-state",
+	"mi,mdss-dsi-local-hbm-off-to-llpm-command-state",
+	"mi,mdss-dsi-doze-to-off-command-state",
+	"mi,mdss-dsi-doze-param-read-state",
+	"mi,mdss-dsi-doze-param-read-end-state",
+	"mi,mdss-dsi-panel-status-offset-command-state",
+	"mi,mdss-dsi-panel-status-after-command-state",
+	"mi,mdss-dsi-auto-update-gamma-command-state",
+	"mi,mdss-dsi-timing-switch-from-auto-mode-command-state",
+	"mi,mdss-dsi-timing-switch-from-skip-mode-command-state",
+	"mi,mdss-dsi-timing-switch-from-normal-mode-command-state",
+
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2018,7 +2097,8 @@ void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set)
 {
-	kfree(set->cmds);
+	if (set->cmds)
+		kfree(set->cmds);
 }
 
 int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
@@ -2035,7 +2115,7 @@ int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
 	return 0;
 }
 
-static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel *panel,
+int dsi_panel_parse_cmd_sets_sub(struct dsi_panel *panel,
 					struct dsi_panel_cmd_set *cmd,
 					enum dsi_cmd_set_type type,
 					struct dsi_parser_utils *utils)
@@ -2600,6 +2680,16 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.brightness_max_level = val;
 	}
 
+	rc = utils->read_u32(utils->data, "qcom,mdss-brightness-init-level",
+		&val);
+	if (rc) {
+		DSI_DEBUG("[%s] brigheness-init-level unspecified, defaulting to 15% max level\n",
+			 panel->name);
+		panel->bl_config.brightness_init_level =
+			(panel->bl_config.brightness_max_level * 15) / 100;
+	} else {
+		panel->bl_config.brightness_init_level = val;
+	}
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
 		"qcom,mdss-dsi-bl-inverted-dbv");
 
@@ -2688,7 +2778,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	return rc;
 }
 
-static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
+static int dsi_panel_parse_dsc_params(struct dsi_panel *panel, struct dsi_display_mode *mode,
 				struct dsi_parser_utils *utils)
 {
 	u32 data;
@@ -2697,7 +2787,7 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	const char *compression;
 	struct dsi_display_mode_priv_info *priv_info;
 
-	if (!mode || !mode->priv_info)
+	if (!panel || !mode || !mode->priv_info)
 		return -EINVAL;
 
 	priv_info = mode->priv_info;
@@ -3460,6 +3550,16 @@ int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel)
 	if (!esd_config)
 		return -EINVAL;
 
+	dsi_panel_parse_cmd_sets_sub(panel, &esd_config->offset_cmd,
+				DSI_CMD_SET_MI_PANEL_STATUS_OFFSET, utils);
+	if (!esd_config->offset_cmd.count) {
+		DSI_ERR("panel status offset command parsing failed\n");
+	}
+	dsi_panel_parse_cmd_sets_sub(panel, &esd_config->after_cmd,
+				DSI_CMD_SET_MI_PANEL_STATUS_AFTER, utils);
+	if (!esd_config->after_cmd.count) {
+		DSI_ERR("panel status after command parsing failed\n");
+	}
 	dsi_panel_parse_cmd_sets_sub(panel, &esd_config->status_cmd,
 				DSI_CMD_SET_PANEL_STATUS, utils);
 	if (!esd_config->status_cmd.count) {
@@ -3575,6 +3675,9 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 	esd_config->esd_enabled = utils->read_bool(utils->data,
 		"qcom,esd-check-enabled");
 
+	esd_config->esd_aod_enabled = utils->read_bool(utils->data,
+		"qcom,esd-aod-check-enabled");
+
 	if (!esd_config->esd_enabled)
 		return 0;
 
@@ -3585,6 +3688,8 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 			esd_config->status_mode = ESD_MODE_SW_BTA;
 		} else if (!strcmp(string, "reg_read")) {
 			esd_config->status_mode = ESD_MODE_REG_READ;
+			rc= utils->read_u32(utils->data,
+				"mi,mdss-dsi-panel-status-check-interval", &(esd_config->esd_status_interval));
 		} else if (!strcmp(string, "te_signal_check")) {
 			if (panel->panel_mode == DSI_OP_CMD_MODE) {
 				esd_config->status_mode = ESD_MODE_PANEL_TE;
@@ -4657,7 +4762,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 				DSI_ERR("failed to parse dynamic clk rates, rc=%d\n", rc);
 		}
 
-		rc = dsi_panel_parse_dsc_params(mode, utils);
+		rc = dsi_panel_parse_dsc_params(panel, mode, utils);
 		if (rc) {
 			DSI_ERR("failed to parse dsc params, rc=%d\n", rc);
 			goto parse_fail;
@@ -4921,9 +5026,9 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	mutex_lock(&panel->panel_lock);
 
 	if (panel->lp11_init) {
-		rc = dsi_panel_power_on(panel);
+		rc = dsi_panel_reset(panel);
 		if (rc) {
-			DSI_ERR("[%s] panel power on failed, rc=%d\n",
+			DSI_ERR("[%s] panel reset failed, rc=%d\n",
 			       panel->name, rc);
 			goto error;
 		}
@@ -5050,7 +5155,6 @@ int dsi_panel_send_qsync_on_dcs(struct dsi_panel *panel,
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_QSYNC_ON cmds rc=%d\n",
 		       panel->name, rc);
-
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -5347,6 +5451,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 			panel->power_mode == SDE_MODE_DPMS_LP2))
 			dsi_pwr_panel_regulator_mode_set(&panel->power_info,
 				"ibb", REGULATOR_MODE_STANDBY);
+		dsi_panel_update_backlight(panel, 0);
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
 		if (rc) {
 			/*

@@ -54,6 +54,48 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
+char *mi_dsi_display_get_cmdline_panel_info(struct dsi_display *display)
+{
+	char *buffer = NULL, *buffer_dup = NULL;
+	char *pname = NULL;
+	char *panel_info = NULL;
+	int index = DSI_PRIMARY;
+
+	if (!display) {
+		return NULL;
+	}
+
+	if (!strcmp(display->display_type, "primary")) {
+		index = DSI_PRIMARY;
+	} else if (!strcmp(display->display_type, "secondary")) {
+		index = DSI_SECONDARY;
+	} else {
+		return NULL;
+	}
+
+	buffer = kstrdup(boot_displays[index].boot_param, GFP_KERNEL);
+	if (!buffer)
+		return NULL;
+	buffer_dup = buffer;
+
+	buffer = strrchr(buffer, ',');
+	if (buffer && *buffer) {
+		pname = ++buffer;
+	} else {
+		goto exit;
+	}
+
+	buffer = strrchr(pname, ':');
+	if (buffer)
+		*buffer = '\0';
+
+	panel_info = kstrdup(pname, GFP_KERNEL);
+
+exit:
+	kfree(buffer_dup);
+	return panel_info;
+}
+
 bool is_skip_op_required(struct dsi_display *display)
 {
 	if (!display)
@@ -911,7 +953,7 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 		int rechecks)
 {
 	int rc = 1, i = 0;
-	int const esd_te_timeout = msecs_to_jiffies(3*20);
+	int const esd_te_timeout = msecs_to_jiffies(15*20);
 
 	if (!rechecks)
 		return rc;
@@ -986,6 +1028,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	}
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY, status_mode, te_check_override);
 
+	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio)){
+		status_mode = ESD_MODE_PANEL_TE;
+		te_rechecks = MAX_TE_RECHECKS;
+	}
 	if (te_check_override)
 		te_rechecks = MAX_TE_RECHECKS;
 
@@ -3447,8 +3493,6 @@ int dsi_host_transfer_sub(struct mipi_dsi_host *host, struct dsi_cmd_desc *cmd)
 			goto error;
 		}
 	}
-
-	dsi_display_set_cmd_tx_ctrl_flags(display, cmd);
 
 	/*
 	 * Wait until any previous broadcast commands with ASYNC waits have been scheduled
@@ -8907,13 +8951,21 @@ error:
 int dsi_display_post_enable(struct dsi_display *display)
 {
 	int rc = 0;
+	struct dsi_panel *panel;
+	struct dsi_display_mode *mode;
 
-	if (!display) {
+	if (!display || !display->panel || !display->drm_conn) {
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
 
+	if (!display->panel->cur_mode) {
+		DSI_ERR("no valid mode set for the display\n");
+		return -EINVAL;
+	}
 	mutex_lock(&display->display_lock);
+	panel = display->panel;
+	mode = panel->cur_mode;
 
 	if (display->panel->cur_mode->dsi_mode_flags &
 			DSI_MODE_FLAG_POMS_TO_CMD) {

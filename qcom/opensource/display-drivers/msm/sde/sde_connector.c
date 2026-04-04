@@ -253,7 +253,7 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	props.type = BACKLIGHT_RAW;
 	props.power = FB_BLANK_UNBLANK;
 	props.max_brightness = bl_config->brightness_max_level;
-	props.brightness = bl_config->brightness_max_level;
+	props.brightness = bl_config->brightness_init_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
 	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev, c_conn,
@@ -620,14 +620,29 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
 		if (en) {
 			u32 interval;
+			struct dsi_display *dsi_display = NULL;
+			struct drm_panel_esd_config *esd_config = NULL;
 
-			/*
-			 * If debugfs property is not set then take
-			 * default value
-			 */
-			interval = c_conn->esd_status_interval ?
-				c_conn->esd_status_interval :
-					STATUS_CHECK_INTERVAL_MS;
+			if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+				dsi_display = (struct dsi_display *)c_conn->display;
+				if (dsi_display && dsi_display->panel) {
+					esd_config = &dsi_display->panel->esd_config;
+				}
+			}
+			if (esd_config) {
+				interval = esd_config->esd_status_interval ?
+						esd_config->esd_status_interval :
+						STATUS_CHECK_INTERVAL_MS;
+			} else {
+				/*
+				 * If debugfs property is not set then take
+				 * default value
+				 */
+				interval = c_conn->esd_status_interval ?
+						c_conn->esd_status_interval :
+						STATUS_CHECK_INTERVAL_MS;
+			}
+
 			/* Schedule ESD status check */
 			schedule_delayed_work(&c_conn->status_work,
 				msecs_to_jiffies(interval));
@@ -2888,6 +2903,8 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	struct sde_connector *conn;
 	int rc = 0;
 	struct device *dev;
+	struct dsi_display *dsi_display = NULL;
+	struct drm_panel_esd_config *esd_config = NULL;
 
 	conn = container_of(to_delayed_work(work),
 			struct sde_connector, status_work);
@@ -2899,6 +2916,12 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	mutex_lock(&conn->lock);
 	dev = conn->base.dev->dev;
 
+	if (!conn->ops.check_status || dev->power.is_suspended ||
+		(conn->lp_mode == SDE_MODE_DPMS_OFF) || (conn->lp_mode == SDE_MODE_DPMS_LP2)) {
+				SDE_DEBUG("dpms mode: %d\n", conn->dpms_mode);
+		mutex_unlock(&conn->lock);
+		return;
+	}
 	if (!conn->ops.check_status || dev->power.is_suspended ||
 			(conn->lp_mode == SDE_MODE_DPMS_OFF)) {
 		SDE_DEBUG("dpms mode: %d\n", conn->dpms_mode);
@@ -2912,12 +2935,24 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	if (rc > 0) {
 		u32 interval;
 
-		SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
+		if (conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+			dsi_display = (struct dsi_display *)conn->display;
+			if (dsi_display && dsi_display->panel) {
+				esd_config = &dsi_display->panel->esd_config;
+			}
+		}
+		if (esd_config) {
+			interval = esd_config->esd_status_interval ?
+				esd_config->esd_status_interval : STATUS_CHECK_INTERVAL_MS;
+		} else {
+			SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
 				conn->base.base.id, conn->encoder->base.id);
 
-		/* If debugfs property is not set then take default value */
-		interval = conn->esd_status_interval ?
-			conn->esd_status_interval : STATUS_CHECK_INTERVAL_MS;
+			/* If debugfs property is not set then take default value */
+			interval = conn->esd_status_interval ?
+				conn->esd_status_interval : STATUS_CHECK_INTERVAL_MS;
+		}
+
 		schedule_delayed_work(&conn->status_work,
 			msecs_to_jiffies(interval));
 		return;
@@ -3339,6 +3374,10 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 		}
 	}
 
+	msm_property_install_range(&c_conn->property_info, "mi_layer_info",
+			0x0, 0, U32_MAX, 0,
+			CONNECTOR_PROP_MI_LAYER_INFO);
+
 	return 0;
 }
 
@@ -3353,6 +3392,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_connector *c_conn = NULL;
+	struct dsi_display *dsi_display;
 	struct msm_display_info display_info;
 	int rc;
 
@@ -3393,6 +3433,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	c_conn->dpms_mode = DRM_MODE_DPMS_ON;
 	c_conn->lp_mode = 0;
 	c_conn->last_panel_power_mode = SDE_MODE_DPMS_ON;
+	c_conn->max_esd_check_power_mode = SDE_MODE_DPMS_ON;
 
 	sde_kms = to_sde_kms(priv->kms);
 	if (sde_kms->vbif[VBIF_NRT]) {
@@ -3484,6 +3525,12 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			SDE_ERROR("register panel id event err %d\n", rc);
 	}
 
+	dsi_display = (struct dsi_display *)(display);
+	if (connector_type == DRM_MODE_CONNECTOR_DSI &&
+			dsi_display && dsi_display->panel &&
+			dsi_display->panel->esd_config.esd_aod_enabled) {
+		c_conn->max_esd_check_power_mode = SDE_MODE_DPMS_LP2;
+	}
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {
 		SDE_ERROR("failed to create one or more properties\n");

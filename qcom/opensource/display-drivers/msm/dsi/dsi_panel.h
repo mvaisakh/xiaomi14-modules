@@ -29,9 +29,10 @@
 #define MAX_SV_BL_SCALE_LEVEL 65535
 #define SV_BL_SCALE_CAP (MAX_SV_BL_SCALE_LEVEL * 4)
 #define DSI_CMD_PPS_SIZE 135
-
+#define PEAK_HDR_BL_LEVEL 3901
 #define DSI_CMD_PPS_HDR_SIZE 7
 #define DSI_MODE_MAX 32
+#define DIM_PARAM 4094
 
 /*
  * Defining custom dsi msg flag.
@@ -131,6 +132,7 @@ struct dsi_backlight_config {
 	u32 bl_min_level;
 	u32 bl_max_level;
 	u32 brightness_max_level;
+	u32 brightness_init_level;
 	/* current brightness value */
 	u32 brightness;
 	u32 bl_level;
@@ -183,8 +185,12 @@ enum esd_check_status_mode {
 
 struct drm_panel_esd_config {
 	bool esd_enabled;
+	bool esd_aod_enabled;
+	u32 esd_status_interval;
 
 	enum esd_check_status_mode status_mode;
+	struct dsi_panel_cmd_set offset_cmd;
+	struct dsi_panel_cmd_set after_cmd;
 	struct dsi_panel_cmd_set status_cmd;
 	u32 *status_cmds_rlen;
 	u32 *status_valid_params;
@@ -439,4 +445,19 @@ int dsi_panel_create_cmd_packets(const char *data, u32 length, u32 count,
 void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
+int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt);
+int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
+				u32 packet_count);
+int dsi_panel_create_cmd_packets(const char *data,
+				u32 length, u32 count, struct dsi_cmd_desc *cmd);
+void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
+void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
+int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
+		enum dsi_cmd_set_type type);
+int dsi_panel_update_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+int dsi_panel_parse_cmd_sets_sub(struct dsi_panel *panel,
+					struct dsi_panel_cmd_set *cmd,
+					enum dsi_cmd_set_type type,
+					struct dsi_parser_utils *utils);
 #endif /* _DSI_PANEL_H_ */
