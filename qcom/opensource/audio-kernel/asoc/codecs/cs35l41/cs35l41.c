@@ -48,7 +48,7 @@
 
 #include "wm_adsp.h"
 #include "cs35l41.h"
-#include <sound/cs35l41.h>
+#include <asoc/cs35l41.h>
 
 
 #define MAX_NAME_LEN	40
