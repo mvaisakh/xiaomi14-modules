@@ -10,12 +10,17 @@
 #include <linux/cdev.h>
 #include <linux/debugfs.h>
 #include <linux/fs.h>
+#include <linux/ioctl.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
+#include <drm/drm_connector.h>
 #include "mi_disp.h"
 
 static struct mi_disp *g_mi_disp = NULL;
+extern int dsi_display_set_backlight(struct drm_connector *connector, void *display, u32 bl_lvl);
+extern int dsi_display_get_active_displays(void **display_array, u32 max_display_count);
 
 struct mi_disp *get_disp_core(void)
 {
@@ -23,8 +28,94 @@ struct mi_disp *get_disp_core(void)
 }
 EXPORT_SYMBOL(get_disp_core);
 
+struct dsi_display *get_display(void)
+{
+    void *active_displays[1] = { NULL };
+    int count;
+
+    count = dsi_display_get_active_displays(active_displays, 1);
+
+    if (count > 0 && active_displays[0]) {
+        return (struct dsi_display *)active_displays[0];
+    }
+
+    return NULL;
+}
+
+static int mi_disp_set_feature(struct dsi_display *display, unsigned long arg)
+{
+    struct disp_feature_req req;
+    int rc = 0;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
+        pr_err("%s: Failed to copy disp_feature_req\n", __func__);
+        return -EFAULT;
+    }
+
+    switch (req.feature_id) {
+        case DISP_FEATURE_BRIGHTNESS:
+        case DISP_FEATURE_BACKLIGHT:
+            pr_debug("%s: requested brightness: %d\n", __func__, req.feature_val);
+            rc = dsi_display_set_backlight(NULL, display, (u32)req.feature_val);
+            break;
+
+        default:
+            // Ignore unneeded features
+            pr_debug("%s: Unhandled feature_id: %u\n", __func__, req.feature_id);
+            break;
+    }
+
+    return rc;
+}
+
+static int mi_disp_set_brightness(struct dsi_display *display, unsigned long arg)
+{
+    struct disp_brightness_req req;
+    int rc = 0;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
+        pr_err("%s: Failed to copy disp_brightness_req\n", __func__);
+        return -EFAULT;
+    }
+
+    pr_debug("%s: ioctl requested brightness: %u\n", __func__, req.brightness);
+
+    rc = dsi_display_set_backlight(NULL, display, req.brightness);
+
+    return rc;
+}
+
+long mi_disp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct dsi_display *display = get_display();
+    unsigned int nr = _IOC_NR(cmd);
+
+    if (!display) {
+        pr_err_ratelimited("%s: DSI display not initialized\n", __func__);
+        return -ENODEV;
+    }
+
+    if (_IOC_TYPE(cmd) != 'D') {
+        return -ENOTTY;
+    }
+
+    switch (nr) {
+        case _IOC_NR(MI_DISP_IOCTL_SET_FEATURE):
+            return mi_disp_set_feature(display, arg);
+
+        case _IOC_NR(MI_DISP_IOCTL_SET_BRIGHTNESS):
+            return mi_disp_set_brightness(display, arg);
+
+        default:
+            // More IOCTLs to be added
+            pr_debug("%s: Unhandled ioctl sequence: 0x%02x\n", __func__, nr);
+            return -ENOTTY;
+    }
+}
+
 static const struct file_operations mi_disp_fops = {
     .owner = THIS_MODULE,
+    .unlocked_ioctl = mi_disp_ioctl,
 };
 
 int __init mi_disp_init(void)
