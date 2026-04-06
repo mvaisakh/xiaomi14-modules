@@ -18,9 +18,10 @@ struct mi_disp {
     struct class *class;
     struct proc_dir_entry *proc_dir;
     struct dentry *debugfs_dir;
-};
 
-int mi_disp_init(void);
-void mi_disp_exit(void);
+    dev_t dev_id;
+    struct cdev cdev;
+    struct device *node;
+};
 
 #endif /* _MI_DISP_H_ */

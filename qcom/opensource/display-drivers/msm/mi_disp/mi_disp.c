@@ -7,7 +7,9 @@
 
 #define pr_fmt(fmt) "mi_disp: " fmt
 
+#include <linux/cdev.h>
 #include <linux/debugfs.h>
+#include <linux/fs.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -20,6 +22,10 @@ struct mi_disp *get_disp_core(void)
     return g_mi_disp;
 }
 EXPORT_SYMBOL(get_disp_core);
+
+static const struct file_operations mi_disp_fops = {
+    .owner = THIS_MODULE,
+};
 
 int __init mi_disp_init(void)
 {
@@ -44,11 +50,31 @@ int __init mi_disp_init(void)
         goto err_free_mem;
     }
 
+    ret = alloc_chrdev_region(&mi_disp->dev_id, 0, 1, MI_DISPLAY_CLASS);
+    if (ret < 0) {
+        pr_err("Failed to allocate chrdev region\n");
+        goto err_class_destroy;
+    }
+
+    cdev_init(&mi_disp->cdev, &mi_disp_fops);
+    ret = cdev_add(&mi_disp->cdev, mi_disp->dev_id, 1);
+    if (ret < 0) {
+        pr_err("Failed to add cdev\n");
+        goto err_unregister_chrdev;
+    }
+
+    mi_disp->node = device_create(mi_disp->class, NULL, mi_disp->dev_id, NULL, "common_node");
+    if (IS_ERR(mi_disp->node)) {
+        pr_err("Failed to create device node\n");
+        ret = PTR_ERR(mi_disp->node);
+        goto err_cdev_del;
+    }
+
     mi_disp->proc_dir = proc_mkdir(MI_DISPLAY_CLASS, NULL);
 	if (!mi_disp->proc_dir) {
 		pr_err("ProcFS creation failure\n");
 		ret = -ENOMEM;
-        goto err_class_destroy;
+        goto err_proc_mkdir;;
 	}
 
 	mi_disp->debugfs_dir = debugfs_create_dir(MI_DISPLAY_CLASS, NULL);
@@ -58,6 +84,12 @@ int __init mi_disp_init(void)
     pr_info("initialised!\n");
     return 0;
 
+err_proc_mkdir:
+    device_destroy(mi_disp->class, mi_disp->dev_id);
+err_cdev_del:
+    cdev_del(&mi_disp->cdev);
+err_unregister_chrdev:
+    unregister_chrdev_region(mi_disp->dev_id, 1);
 err_class_destroy:
     class_destroy(mi_disp->class);
 err_free_mem:
@@ -72,6 +104,9 @@ static void __exit mi_disp_exit(void)
 
 	debugfs_remove_recursive(g_mi_disp->debugfs_dir);
 	remove_proc_entry(MI_DISPLAY_CLASS, NULL);
+    device_destroy(g_mi_disp->class, g_mi_disp->dev_id);
+    cdev_del(&g_mi_disp->cdev);
+    unregister_chrdev_region(g_mi_disp->dev_id, 1);
 	class_destroy(g_mi_disp->class);
 	kfree(g_mi_disp);
 	g_mi_disp = NULL;
