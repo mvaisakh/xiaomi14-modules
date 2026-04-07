@@ -23,6 +23,7 @@
 #include "dsi_pwr.h"
 #include "sde_dbg.h"
 #include "dsi_parser.h"
+#include "mi_disp.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -9310,6 +9311,7 @@ void dsi_display_report_dead(struct dsi_display *display)
 
 void __init dsi_display_register(void)
 {
+	mi_disp_init();
 	dsi_phy_drv_register();
 	dsi_ctrl_drv_register();
 
@@ -9323,6 +9325,7 @@ void __exit dsi_display_unregister(void)
 	platform_driver_unregister(&dsi_display_driver);
 	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
+	mi_disp_exit();
 }
 module_param_string(dsi_display0, dsi_display_primary, MAX_CMDLINE_PARAM_LEN,
 								0600);
