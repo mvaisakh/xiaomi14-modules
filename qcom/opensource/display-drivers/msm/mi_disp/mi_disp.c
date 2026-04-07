@@ -118,7 +118,7 @@ static const struct file_operations mi_disp_fops = {
     .unlocked_ioctl = mi_disp_ioctl,
 };
 
-int __init mi_disp_init(void)
+int mi_disp_init(void)
 {
     int ret = 0;
     struct mi_disp *mi_disp = NULL;
@@ -188,7 +188,7 @@ err_free_mem:
     return ret;
 }
 
-static void __exit mi_disp_exit(void)
+void mi_disp_exit(void)
 {
     if (!g_mi_disp)
         return;
@@ -202,9 +202,6 @@ static void __exit mi_disp_exit(void)
 	kfree(g_mi_disp);
 	g_mi_disp = NULL;
 }
-
-module_init(mi_disp_init);
-module_exit(mi_disp_exit);
 
 MODULE_DESCRIPTION("Xiaomi Display");
 MODULE_LICENSE("GPL v2");

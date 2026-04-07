@@ -9,6 +9,7 @@
 #define _MI_DISP_H_
 
 #include <linux/types.h>
+#include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/proc_fs.h>
 
@@ -53,5 +54,9 @@ struct mi_disp {
     struct cdev cdev;
     struct device *node;
 };
+
+// Init sequence
+int mi_disp_init(void);
+void mi_disp_exit(void);
 
 #endif /* _MI_DISP_H_ */
