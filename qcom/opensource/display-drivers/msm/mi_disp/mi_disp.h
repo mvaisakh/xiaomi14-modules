@@ -25,6 +25,16 @@ enum disp_feature_id {
 	DISP_FEATURE_BRIGHTNESS = 24,
 };
 
+struct disp_version {
+    struct disp_base base;
+    __u32 version;
+};
+
+struct disp_event_req {
+    struct disp_base base;
+    __u32 type;
+};
+
 struct disp_brightness_req {
 	struct disp_base base;
 	__u32 brightness;
@@ -46,6 +56,9 @@ struct disp_feature_req {
 #define MI_DISP_IOCTL_GET_FEATURE             _IOWR('D', 0x0F, struct disp_feature_req)
 #define MI_DISP_IOCTL_SET_BRIGHTNESS           _IOW('D', 0x0C, struct disp_brightness_req)
 #define MI_DISP_IOCTL_SET_FEATURE             _IOWR('D', 0x01, struct disp_feature_req)
+#define MI_DISP_IOCTL_VERSION                  _IOR('D', 0x00, struct disp_version)
+#define MI_DISP_IOCTL_REGISTER_EVENT           _IOW('D', 0x07, struct disp_event_req)
+#define MI_DISP_IOCTL_DEREGISTER_EVENT         _IOW('D', 0x08, struct disp_event_req)
 
 struct mi_disp {
     struct class *class;
