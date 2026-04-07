@@ -45,6 +45,37 @@ struct dsi_display *get_display(void)
     return NULL;
 }
 
+static int mi_disp_get_version(unsigned long arg)
+{
+    struct disp_version req;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
+        return -EFAULT;
+
+    // Default to what xiaomi has
+    req.version = 0x0100;
+
+    pr_debug("%s: Faking version response: 0x%04x\n", __func__, req.version);
+
+    if (copy_to_user((void __user *)arg, &req, sizeof(req)))
+        return -EFAULT;
+
+    return 0;
+}
+
+static int mi_disp_stub_event(unsigned long arg, bool is_register)
+{
+    struct disp_event_req req;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
+        return -EFAULT;
+
+    pr_debug("%s: HAL %s event type: %u. Faking success.\n",
+             __func__, is_register ? "registered" : "deregistered", req.type);
+
+    return 0;
+}
+
 static int mi_disp_get_brightness(struct dsi_display *display, unsigned long arg)
 {
     struct disp_brightness_req req;
@@ -94,6 +125,7 @@ static int mi_disp_get_feature(struct dsi_display *display, unsigned long arg)
 
         default:
             pr_debug("%s: Unhandled GET feature_id: %u\n", __func__, req.feature_id);
+            req.feature_val = 0;
             break;
     }
 
@@ -163,6 +195,15 @@ long mi_disp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     }
 
     switch (nr) {
+        case _IOC_NR(MI_DISP_IOCTL_VERSION):
+            return mi_disp_get_version(arg);
+
+        case _IOC_NR(MI_DISP_IOCTL_REGISTER_EVENT):
+            return mi_disp_stub_event(arg, true);
+
+        case _IOC_NR(MI_DISP_IOCTL_DEREGISTER_EVENT):
+            return mi_disp_stub_event(arg, false);
+
         case _IOC_NR(MI_DISP_IOCTL_GET_FEATURE):
             return mi_disp_get_feature(display, arg);
 
