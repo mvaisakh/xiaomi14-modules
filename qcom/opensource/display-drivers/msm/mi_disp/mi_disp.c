@@ -16,6 +16,9 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <drm/drm_connector.h>
+
+#include "dsi_display.h"
+#include "dsi_panel.h"
 #include "mi_disp.h"
 
 static struct mi_disp *g_mi_disp = NULL;
@@ -40,6 +43,66 @@ struct dsi_display *get_display(void)
     }
 
     return NULL;
+}
+
+static int mi_disp_get_brightness(struct dsi_display *display, unsigned long arg)
+{
+    struct disp_brightness_req req;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
+        pr_err("%s: Failed to copy disp_brightness_req\n", __func__);
+        return -EFAULT;
+    }
+
+    if (!display->panel) {
+        pr_err("%s: DSI panel not initialized\n", __func__);
+        return -ENODEV;
+    }
+
+    req.brightness = display->panel->bl_config.bl_level;
+    
+    pr_debug("%s: Returning brightness: %u\n", __func__, req.brightness);
+
+    if (copy_to_user((void __user *)arg, &req, sizeof(req))) {
+        pr_err("%s: Failed to return disp_brightness_req to user\n", __func__);
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
+static int mi_disp_get_feature(struct dsi_display *display, unsigned long arg)
+{
+    struct disp_feature_req req;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
+        pr_err("%s: Failed to copy disp_feature_req\n", __func__);
+        return -EFAULT;
+    }
+
+    if (!display->panel) {
+        pr_err("%s: DSI panel not initialized\n", __func__);
+        return -ENODEV;
+    }
+
+    switch (req.feature_id) {
+        case DISP_FEATURE_BRIGHTNESS:
+        case DISP_FEATURE_BACKLIGHT:
+            req.feature_val = display->panel->bl_config.bl_level;
+            pr_debug("%s: Returning feature brightness: %d\n", __func__, req.feature_val);
+            break;
+
+        default:
+            pr_debug("%s: Unhandled GET feature_id: %u\n", __func__, req.feature_id);
+            break;
+    }
+
+    if (copy_to_user((void __user *)arg, &req, sizeof(req))) {
+        pr_err("%s: Failed to return disp_feature_req to user\n", __func__);
+        return -EFAULT;
+    }
+
+    return 0;
 }
 
 static int mi_disp_set_feature(struct dsi_display *display, unsigned long arg)
@@ -100,6 +163,12 @@ long mi_disp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     }
 
     switch (nr) {
+        case _IOC_NR(MI_DISP_IOCTL_GET_FEATURE):
+            return mi_disp_get_feature(display, arg);
+
+        case _IOC_NR(MI_DISP_IOCTL_GET_BRIGHTNESS):
+            return mi_disp_get_brightness(display, arg);
+
         case _IOC_NR(MI_DISP_IOCTL_SET_FEATURE):
             return mi_disp_set_feature(display, arg);
 

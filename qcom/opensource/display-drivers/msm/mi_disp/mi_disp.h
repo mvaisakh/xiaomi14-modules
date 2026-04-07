@@ -42,6 +42,8 @@ struct disp_feature_req {
 };
 
 // IOCTLs
+#define MI_DISP_IOCTL_GET_BRIGHTNESS          _IOWR('D', 0x0B, struct disp_brightness_req)
+#define MI_DISP_IOCTL_GET_FEATURE             _IOWR('D', 0x0F, struct disp_feature_req)
 #define MI_DISP_IOCTL_SET_BRIGHTNESS           _IOW('D', 0x0C, struct disp_brightness_req)
 #define MI_DISP_IOCTL_SET_FEATURE             _IOWR('D', 0x01, struct disp_feature_req)
 
