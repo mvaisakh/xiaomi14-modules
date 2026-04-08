@@ -22,6 +22,7 @@ def define_aps(target, variant):
         ],
         copts = ["-Wno-misleading-indentation"],
         includes = ["include"],
+        visibility = ["//visibility:public"],
     )
 
     copy_to_dist_dir(

@@ -14,6 +14,7 @@ def define_sch(target, variant):
         deps = ["//msm-kernel:all_headers"],
         copts = ["-Wno-misleading-indentation"],
         kernel_build = "//msm-kernel:{}".format(kernel_build_variant),
+        visibility = ["//visibility:public"],
     )
 
     copy_to_dist_dir(

@@ -31,6 +31,7 @@ def define_offload(target, variant):
             "//vendor/qcom/opensource/datarmnet:rmnet_core_headers",
         ],
         copts = ["-Wno-misleading-indentation"],
+        visibility = ["//visibility:public"],
     )
 
     copy_to_dist_dir(

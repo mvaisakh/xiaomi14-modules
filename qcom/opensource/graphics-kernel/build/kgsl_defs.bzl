@@ -140,7 +140,7 @@ def define_target_variant_module(target, variant):
         deps = [ "//msm-kernel:all_headers", "//msm-kernel:all_headers_unsafe" ] + ext_deps,
         includes = ["include", "."],
         kernel_build = kernel_build,
-        visibility = ["//visibility:private"]
+        visibility = ["//visibility:public"]
     )
 
     copy_to_dist_dir(
