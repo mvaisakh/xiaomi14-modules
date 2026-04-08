@@ -22,6 +22,7 @@ def define_mem(target, variant):
             "//msm-kernel:all_headers",
         ],
         copts = ["-Wno-misleading-indentation"],
+        visibility = ["//visibility:public"],
     )
 
     copy_to_dist_dir(
