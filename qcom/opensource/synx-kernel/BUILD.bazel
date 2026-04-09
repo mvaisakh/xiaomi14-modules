@@ -10,6 +10,7 @@ driver_header_globs = [
     "include/uapi/synx/**/*.h",
     "include/uapi/synx/media/**/*.h",
     "msm/synx/**/*.h",
+    "dt-bindings/*.h",
 ]
 
 ddk_headers(
