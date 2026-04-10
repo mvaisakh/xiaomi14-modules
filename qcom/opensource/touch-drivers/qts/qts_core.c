@@ -1616,7 +1616,7 @@ error:
 
 #endif
 
-static void qts_ts_suspend(struct qts_data *qts_data)
+void qts_ts_suspend(struct qts_data *qts_data)
 {
 	int rc = 0;
 
@@ -1641,7 +1641,7 @@ static void qts_ts_suspend(struct qts_data *qts_data)
 }
 EXPORT_SYMBOL(qts_ts_suspend);
 
-static void qts_ts_resume(struct qts_data *qts_data)
+void qts_ts_resume(struct qts_data *qts_data)
 {
 	int rc = 0;
 
