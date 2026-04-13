@@ -21,9 +21,12 @@
 #include "dsi_panel.h"
 #include "mi_disp.h"
 
-static struct mi_disp *g_mi_disp = NULL;
+/* External references */
 extern int dsi_display_set_backlight(struct drm_connector *connector, void *display, u32 bl_lvl);
 extern int dsi_display_get_active_displays(void **display_array, u32 max_display_count);
+extern int dsi_panel_tx_cmd_set(struct dsi_panel *panel, enum dsi_cmd_set_type type);
+
+static struct mi_disp *g_mi_disp = NULL;
 
 struct mi_disp *get_disp_core(void)
 {
@@ -153,6 +156,10 @@ static int mi_disp_set_feature(struct dsi_display *display, unsigned long arg)
             pr_debug("%s: requested brightness: %d\n", __func__, req.feature_val);
             rc = dsi_display_set_backlight(NULL, display, (u32)req.feature_val);
             break;
+        case DISP_FEATURE_LOCAL_HBM:
+            pr_debug("%s: feature requested LHBM state: %d\n", __func__, req.feature_val);
+            rc = mi_disp_set_local_hbm(req.feature_val);
+            break;
 
         default:
             // Ignore unneeded features
@@ -178,6 +185,51 @@ static int mi_disp_set_brightness(struct dsi_display *display, unsigned long arg
     rc = dsi_display_set_backlight(NULL, display, req.brightness);
 
     return rc;
+}
+
+int mi_disp_set_local_hbm(int state)
+{
+    struct dsi_display *display = get_display();
+    int rc = 0;
+
+    if (!display || !display->panel) {
+        pr_err_ratelimited("%s: DSI display/panel not initialized\n", __func__);
+        return -ENODEV;
+    }
+
+    pr_debug("%s: Setting LHBM state to: %d\n", __func__, state);
+
+    mutex_lock(&display->display_lock);
+
+    switch (state) {
+        case LOCAL_HBM_NORMAL_WHITE_1000NIT:
+            rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT); 
+            break;
+
+        case LOCAL_HBM_OFF_TO_NORMAL:
+            rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
+            break;
+
+        default:
+            pr_debug("%s: Unhandled LHBM state: %d\n", __func__, state);
+            break;
+    }
+
+    mutex_unlock(&display->display_lock);
+    return rc;
+}
+EXPORT_SYMBOL(mi_disp_set_local_hbm);
+
+static int mi_disp_set_local_hbm_ioctl(struct dsi_display *display, unsigned long arg)
+{
+    struct disp_local_hbm_req req;
+
+    if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
+        pr_err("%s: Failed to copy disp_local_hbm_req\n", __func__);
+        return -EFAULT;
+    }
+
+    return mi_disp_set_local_hbm(req.local_hbm_value);
 }
 
 long mi_disp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -215,6 +267,9 @@ long mi_disp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case _IOC_NR(MI_DISP_IOCTL_SET_BRIGHTNESS):
             return mi_disp_set_brightness(display, arg);
+
+        case _IOC_NR(MI_DISP_IOCTL_SET_LOCAL_HBM):
+            return mi_disp_set_local_hbm_ioctl(display, arg);
 
         default:
             // More IOCTLs to be added

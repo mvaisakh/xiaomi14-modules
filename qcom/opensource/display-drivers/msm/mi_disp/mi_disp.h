@@ -21,7 +21,8 @@ struct disp_base {
 };
 
 enum disp_feature_id {
-    DISP_FEATURE_BACKLIGHT = 23,
+	DISP_FEATURE_LOCAL_HBM = 9,
+	DISP_FEATURE_BACKLIGHT = 23,
 	DISP_FEATURE_BRIGHTNESS = 24,
 };
 
@@ -41,6 +42,11 @@ struct disp_brightness_req {
 	__u32 brightness_clone;
 };
 
+struct disp_local_hbm_req {
+	struct disp_base base;
+	__u32 local_hbm_value;
+};
+
 struct disp_feature_req {
 	struct disp_base base;
 	__u32 feature_id;
@@ -51,6 +57,12 @@ struct disp_feature_req {
 	__u64 rx_ptr;
 };
 
+enum local_hbm_state {
+	LOCAL_HBM_OFF_TO_NORMAL = 0,
+	LOCAL_HBM_NORMAL_WHITE_1000NIT = 1,
+	LOCAL_HBM_MAX,
+};
+
 // IOCTLs
 #define MI_DISP_IOCTL_GET_BRIGHTNESS          _IOWR('D', 0x0B, struct disp_brightness_req)
 #define MI_DISP_IOCTL_GET_FEATURE             _IOWR('D', 0x0F, struct disp_feature_req)
@@ -59,6 +71,7 @@ struct disp_feature_req {
 #define MI_DISP_IOCTL_VERSION                  _IOR('D', 0x00, struct disp_version)
 #define MI_DISP_IOCTL_REGISTER_EVENT           _IOW('D', 0x07, struct disp_event_req)
 #define MI_DISP_IOCTL_DEREGISTER_EVENT         _IOW('D', 0x08, struct disp_event_req)
+#define MI_DISP_IOCTL_SET_LOCAL_HBM            _IOW('D', 0x0E, struct disp_local_hbm_req)
 
 struct mi_disp {
     struct class *class;
@@ -69,6 +82,9 @@ struct mi_disp {
     struct cdev cdev;
     struct device *node;
 };
+
+// Local HBM
+int mi_disp_set_local_hbm(int state);
 
 // Init sequence
 int mi_disp_init(void);
