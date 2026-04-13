@@ -162,6 +162,22 @@ module_entry(
     ]
 )
 
+module_entry(
+    name = "synaptics_tcm2",
+    config_option = "CONFIG_TOUCHSCREEN_SYNA_TCM2",
+    srcs = [
+            "synaptics_touch/tcm/synaptics_touchcom_core_v1.c",
+            "synaptics_touch/tcm/synaptics_touchcom_core_v2.c",
+            "synaptics_touch/tcm/synaptics_touchcom_func_base.c",
+            "synaptics_touch/tcm/synaptics_touchcom_func_touch.c",
+            "synaptics_touch/tcm/synaptics_touchcom_func_reflash.c",
+            "synaptics_touch/tcm/synaptics_touchcom_func_romboot.c",
+            "synaptics_touch/syna_tcm2_sysfs.c",
+            "synaptics_touch/syna_tcm2_platform_spi.c",
+            "synaptics_touch/syna_tcm2.c",
+    ]
+)
+
 # Xiaomi Touch
 module_entry(
     name = "xiaomi-touch",
