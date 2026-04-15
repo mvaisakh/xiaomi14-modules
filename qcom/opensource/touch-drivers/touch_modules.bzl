@@ -1,8 +1,12 @@
 # Importing to touch module entry api from touch_modules_build.bzl to define module entried for touch drivers
 load(":touch_modules_build.bzl", "touch_module_entry")
 
-# Importing the touch driver headers defined in BUILD.bazel
-touch_driver_modules = touch_module_entry([":touch_drivers_headers"])
+# Importing the touch driver headers & mi_disp defined in BUILD.bazel
+touch_driver_modules = touch_module_entry([
+            ":touch_drivers_headers",
+            "//vendor/qcom/opensource/display-drivers:mi_headers",
+        ]
+    )
 
 #Including the headers in the modules to be declared
 module_entry = touch_driver_modules.register

@@ -613,6 +613,10 @@ struct syna_tcm {
 	 *    on success, 0; otherwise, negative value on error.
 	 */
 	int (*dev_suspend)(struct device *dev);
+
+	/* FOD */
+	bool fod_auth_active;
+	bool is_fod_pressed;
 };
 
 /**

@@ -15,3 +15,5 @@ syna_touch-objs += \
 			syna_tcm2_platform_spi.o \
 			syna_tcm2_sysfs.o \
 			syna_tcm2_testing.o
+
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/display-drivers/Module.symvers

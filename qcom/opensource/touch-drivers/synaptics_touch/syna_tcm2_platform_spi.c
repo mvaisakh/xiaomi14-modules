@@ -446,7 +446,7 @@ static int syna_spi_parse_dt(struct syna_hw_interface *hw_if,
 	int retval;
 	int index;
 	u32 value;
-	u32 coords[2];
+	u32 fod_lx = 0, fod_ly = 0, fod_x_size = 0, fod_y_size = 0;
 	struct property *prop;
 	struct device_node *np = dev->of_node;
 	const char *name;
@@ -725,13 +725,16 @@ static int syna_spi_parse_dt(struct syna_hw_interface *hw_if,
 
 	hw_if->dynamic_report_rate = of_property_read_bool(np,"synaptics,dynamic-report-rate");
 
-	if (of_property_read_u32_array(np, "synaptics,udfps-coords", coords, 2)) {
-		dev_err(dev, "synaptics,udfps-coords not found\n");
-		coords[0] = 0;
-		coords[1] = 0;
-	}
-	hw_if->udfps_x = coords[0];
-	hw_if->udfps_y = coords[1];
+	/* Xiaomi FOD */
+	of_property_read_u32(np, "synaptics,fod-lx", &fod_lx);
+	of_property_read_u32(np, "synaptics,fod-ly", &fod_ly);
+	of_property_read_u32(np, "synaptics,fod-x-size", &fod_x_size);
+	of_property_read_u32(np, "synaptics,fod-y-size", &fod_y_size);
+
+	hw_if->fod_x_min = fod_lx;
+	hw_if->fod_x_max = fod_lx + fod_x_size;
+	hw_if->fod_y_min = fod_ly;
+	hw_if->fod_y_max = fod_ly + fod_y_size;
 
 	return 0;
 }

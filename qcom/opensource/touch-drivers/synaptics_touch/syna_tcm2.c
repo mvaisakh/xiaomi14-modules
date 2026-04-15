@@ -49,6 +49,10 @@
 #include "synaptics_touchcom_func_romboot.h"
 #endif
 
+/* Xiaomi */
+#include "mi_disp.h"
+#include "../xiaomi/xiaomi_touch.h"
+
 /* Init the kfifo for health check. */
 #define SYNA_HC_KFIFO_LEN 4 /* Must be power of 2. */
 DEFINE_KFIFO(hc_fifo, struct syna_health_check_fifo, SYNA_HC_KFIFO_LEN);
@@ -892,6 +896,12 @@ static void syna_dev_report_input_events(struct syna_tcm *tcm)
 			tcm->syna_hc.touch_info_fifo[idx].idx = idx;
 			syna_kfifo_push_coord(tcm, idx);
 
+			if (tcm->is_fod_pressed) {
+				 mi_disp_set_local_hbm(LOCAL_HBM_OFF_TO_NORMAL);
+				 notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 0);
+				 tcm->is_fod_pressed = false;
+			 }
+
 			__clear_bit(idx, &tcm->syna_hc.touch_idx_state);
 			break;
 		case FINGER:
@@ -974,6 +984,22 @@ static void syna_dev_report_input_events(struct syna_tcm *tcm)
 			tcm->syna_hc.touch_info_fifo[idx].y = y;
 			__set_bit(idx, &tcm->syna_hc.touch_idx_state);
 			touch_count++;
+
+			if (status != PALM && tcm->fod_auth_active &&
+				x >= tcm->hw_if->fod_x_min && x <= tcm->hw_if->fod_x_max &&
+				y >= tcm->hw_if->fod_y_min && y <= tcm->hw_if->fod_y_max) {
+
+				if (!tcm->is_fod_pressed) {
+					mi_disp_set_local_hbm(LOCAL_HBM_NORMAL_WHITE_1000NIT);
+					notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 1);
+					tcm->is_fod_pressed = true;
+				}
+			} else if (tcm->is_fod_pressed) {
+				// Finger moved out of fp region
+				mi_disp_set_local_hbm(LOCAL_HBM_OFF_TO_NORMAL);
+				notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 0);
+				tcm->is_fod_pressed = false;
+			}
 			break;
 		default:
 			break;
@@ -1744,8 +1770,8 @@ static void syna_report_cancel_event(struct syna_tcm *tcm)
 	input_mt_slot(tcm->input_dev, 0);
 	input_report_key(tcm->input_dev, BTN_TOUCH, 1);
 	input_mt_report_slot_state(tcm->input_dev, MT_TOOL_FINGER, 1);
-	input_report_abs(tcm->input_dev, ABS_MT_POSITION_X, tcm->hw_if->udfps_x);
-	input_report_abs(tcm->input_dev, ABS_MT_POSITION_Y, tcm->hw_if->udfps_y);
+	input_report_abs(tcm->input_dev, ABS_MT_POSITION_X, tcm->hw_if->fod_x_min);
+	input_report_abs(tcm->input_dev, ABS_MT_POSITION_Y, tcm->hw_if->fod_y_min);
 	input_report_abs(tcm->input_dev, ABS_MT_TOUCH_MAJOR, 200);
 	input_report_abs(tcm->input_dev, ABS_MT_TOUCH_MINOR, 200);
 #ifndef SKIP_PRESSURE
@@ -1853,7 +1879,7 @@ static int syna_dev_resume(struct device *dev)
 
 	syna_pinctrl_configure(tcm, true);
 
-	if (hw_if->udfps_x != 0 && hw_if->udfps_y != 0)
+	if (hw_if->fod_x_min != 0 && hw_if->fod_y_min != 0)
 		syna_check_finger_status(tcm);
 
 	/* clear all input events  */
@@ -2383,6 +2409,33 @@ static struct drm_panel *syna_dev_get_panel(struct device_node *np)
 }
 #endif
 
+static int syna_tcm_set_mode_value(void *private, enum touch_mode mode, int value)
+{
+	struct syna_tcm *tcm = private;
+
+	switch (mode) {
+		case TOUCH_MODE_FOD_PRESS_GESTURE:
+			LOGI("FOD Auth State changed by Android HAL: %d\n", value);
+			tcm->fod_auth_active = (value != 0);
+			// Safety: If Android cancels auth while a finger is held down, kill the spotlight!
+			if (!tcm->fod_auth_active && tcm->is_fod_pressed) {
+				mi_disp_set_local_hbm(LOCAL_HBM_OFF_TO_NORMAL);
+				notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 0);
+				tcm->is_fod_pressed = false;
+			}
+			break;
+
+		default:
+			break;
+	}
+	return 0;
+}
+
+static struct xiaomi_touch_interface syna_touch_interface = {
+	.set_mode_value = syna_tcm_set_mode_value,
+	.get_mode_value = NULL,
+};
+
 /**
  * syna_dev_probe()
  *
@@ -2450,6 +2503,9 @@ static int syna_dev_probe(struct platform_device *pdev)
 
 	tcm->is_connected = false;
 	tcm->pwr_state = PWR_OFF;
+
+	tcm->fod_auth_active = false;
+	tcm->is_fod_pressed = false;
 
 	tcm->dev_connect = syna_dev_connect;
 	tcm->dev_disconnect = syna_dev_disconnect;
@@ -2540,6 +2596,9 @@ static int syna_dev_probe(struct platform_device *pdev)
 		goto err_create_cdev;
 	}
 #endif
+
+	syna_touch_interface.private = tcm;
+	register_xiaomi_touch_client(TOUCH_ID_PRIMARY, &syna_touch_interface);
 
 #if defined(ENABLE_DISP_NOTIFIER)
 #if defined(USE_DRM_PANEL_NOTIFIER)
