@@ -5,3 +5,6 @@ define_modules("pineapple", "gki")
 
 define_modules("sun", "consolidate")
 define_modules("sun", "perf")
+
+define_modules("houji", "consolidate")
+define_modules("houji", "gki")
